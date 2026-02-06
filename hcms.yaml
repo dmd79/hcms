@@ -1,0 +1,1319 @@
+esphome:
+  name: hcms
+  friendly_name: hcms
+  includes:
+    - LedDisplay/LedDisplay.cpp
+    - LedDisplay/LedDisplay.h
+    - LedDisplay/Font5x7.h
+    - Calculator/Calculator.cpp
+    - Calculator/Calculator.h
+  on_boot:
+    then:
+      - lambda: |-
+          static auto my_display_1 = new LedDisplay(25, 26, 27, 14, 12, 16);
+          my_display_1->begin();
+          my_display_1->clear();
+          my_display_1->setBrightness(15);
+
+          // Imposta cursore alla fine del buffer all'avvio
+          id(cursor_pos) = id(buffer).length();
+          return;
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_hcms
+
+ota:
+  platform: esphome
+  password: !secret ota_hcms
+
+wifi:
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  manual_ip:
+    static_ip: 192.168.188.83
+    gateway: 192.168.188.1
+    subnet: 255.255.255.0
+  ap:
+    ssid: "Hcms Fallback Hotspot"
+    password: "k6O8BTRS0byE"
+
+web_server:
+  port: 80
+  version: 2
+
+external_components:
+  - source:
+      type: local
+      path: LedDisplay
+
+# =====================
+# VARIABILI GLOBALI
+# =====================
+globals:
+  - id: a
+    type: double
+    initial_value: '0'
+  - id: b
+    type: double
+    initial_value: '0'
+  - id: result
+    type: double
+    initial_value: '0'
+  - id: op
+    type: char
+    initial_value: "' '"
+  - id: last_was_result
+    type: bool
+    initial_value: 'false'
+  - id: pending_op
+    type: char
+    initial_value: ' '
+  - id: calc_buffer
+    type: std::string
+    restore_value: false
+    initial_value: ""
+  - id: buffer
+    type: std::string
+    restore_value: false
+    initial_value: ""
+  - id: cursor_pos
+    type: int
+    initial_value: '0'
+  - id: paren_alert
+    type: bool
+    initial_value: 'false'
+  - id: paren_alert_count
+    type: int
+    initial_value: '0'
+
+# =====================
+# SCRIPT DISPLAY
+# =====================
+script:
+  - id: refresh_display
+    then:
+      - lambda: |-
+          static auto my_display_1 = new LedDisplay(25, 26, 27, 14, 12, 16);
+          my_display_1->setCursor(0);
+          my_display_1->setString(id(text_1).state.c_str());
+          my_display_1->scroll(0);
+          return;
+
+  - id: update_input_display
+    then:
+      - text.set:
+          id: text_1
+          value: !lambda |-
+            static char buf[32];
+            std::string s = id(buffer);
+
+            // Lampeggio cursore / parentesi
+            static bool blink = false;
+            blink = !blink;
+
+            int pos = id(cursor_pos);
+            if(pos > s.length()) pos = s.length();
+
+            const int window_size = 16;
+            int window_start = 0;
+            if(pos > window_size - 1) window_start = pos - (window_size - 1);
+
+            int cursor_in_window = pos - window_start;
+
+            // 🔹 Calcolo parentesi aperte non chiuse
+            int open_par = 0, close_par = 0;
+            for(char c : s) {
+              if(c=='(') open_par++;
+              else if(c==')') close_par++;
+            }
+            int missing = open_par - close_par;
+            id(paren_alert_count) = missing > 0 ? missing : 0;
+            id(paren_alert) = missing > 0;
+
+            // 🔹 Trova la '(' corrispondente alla ')' che mancherebbe alla fine
+            // Parti dalla fine e vai all'indietro
+            int matching_open_pos = -1;
+            int balance = 0;
+            for(int i = s.length() - 1; i >= 0; i--) {
+              if(s[i] == ')') {
+                balance--;
+              }
+              else if(s[i] == '(') {
+                balance++;
+                if(balance > 0) {
+                  matching_open_pos = i;  // Questa è la ( non chiusa
+                  break;
+                }
+              }
+            }
+
+            // 🔹 Costruzione finestra (SEMPRE senza la ( non chiusa se c'è paren_alert)
+            std::string display_s(window_size, ' ');
+            for(int i=0; i<window_size; i++) {
+              int global_pos = window_start + i;
+              if(global_pos < s.length()) {
+                // Salta SEMPRE la '(' non chiusa se stiamo lampeggiando
+                if(id(paren_alert) && global_pos == matching_open_pos) {
+                  display_s[i] = ' ';  // Non mostrare la ( (verrà aggiunta dopo solo se blink)
+                } else {
+                  display_s[i] = s[global_pos];
+                }
+              }
+            }
+
+            if(id(paren_alert)) {
+              // ===== CASO CON PARENTESI APERTE =====
+              if(blink) {
+                // Mostra tutto: (, ), _
+                
+                // Mostra la '(' non chiusa
+                if(matching_open_pos >= 0) {
+                  int open_in_window = matching_open_pos - window_start;
+                  if(open_in_window >= 0 && open_in_window < window_size) {
+                    display_s[open_in_window] = '(';
+                  }
+                }
+                
+                // Mostra la ')' alla fine
+                int end_pos = s.length();
+                int end_in_window = end_pos - window_start;
+                if(end_in_window >= 0 && end_in_window < window_size) {
+                  display_s[end_in_window] = ')';
+                }
+
+                // Mostra cursore '_' (ma non se alla fine)
+                if(pos != s.length() && cursor_in_window >= 0 && cursor_in_window < window_size) {
+                  display_s[cursor_in_window] = '_';
+                }
+              }
+              // else: tutto nascosto (già gestito dalla costruzione)
+            } else {
+              // ===== CASO SENZA PARENTESI APERTE =====
+              if(blink && cursor_in_window >= 0 && cursor_in_window < window_size) {
+                display_s[cursor_in_window] = '_';
+              }
+            }
+
+            snprintf(buf, sizeof(buf), "%s", display_s.c_str());
+            return buf;
+      - script.execute: refresh_display
+
+  - id: update_result_display
+    then:
+      - text.set:
+          id: text_1
+          value: !lambda |-
+              static char buf[17]; // 16 char + terminatore
+              double v = id(result);
+
+              if (std::isnan(v) || std::isinf(v)) {
+                  snprintf(buf, sizeof(buf), "ERROR");
+              }
+              else if (std::fabs(v) >= 1e15 || (std::fabs(v) > 0 && std::fabs(v) < 1e-7)) {
+                  snprintf(buf, sizeof(buf), "%.7e", v);
+              } else {
+                  snprintf(buf, sizeof(buf), "%.15g", v);
+              }
+              return buf;
+      - script.execute: refresh_display
+
+# =====================
+# TESTO WEB
+# =====================
+text:
+  - platform: template
+    id: text_1
+    name: "Display"
+    internal: true
+    mode: text
+    optimistic: true
+    initial_value: "0"
+
+button:
+# =====================
+# PULSANTI NUMERICI
+# =====================
+  - platform: template
+    name: "0"
+    id: btn_0
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos) = 0;
+              }
+              id(last_was_result) = false;
+          }
+          
+          // Moltiplicazione implicita se prima c'è )
+          int pos = id(cursor_pos);
+          if(pos > 0 && id(buffer)[pos-1] == ')') {
+              id(buffer).insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+          
+          id(buffer).insert(id(cursor_pos), "0");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "1"
+    id: btn_1
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos) = 0;
+              }
+              id(last_was_result) = false;
+          }
+          
+          // Moltiplicazione implicita se prima c'è )
+          int pos = id(cursor_pos);
+          if(pos > 0 && id(buffer)[pos-1] == ')') {
+              id(buffer).insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+          
+          id(buffer).insert(id(cursor_pos), "1");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "2"
+    id: btn_2
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos) = 0;
+              }
+              id(last_was_result) = false;
+          }
+          
+          // Moltiplicazione implicita se prima c'è )
+          int pos = id(cursor_pos);
+          if(pos > 0 && id(buffer)[pos-1] == ')') {
+              id(buffer).insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+          
+          id(buffer).insert(id(cursor_pos), "2");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "3"
+    id: btn_3
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos) = 0;
+              }
+              id(last_was_result) = false;
+          }
+          
+          // Moltiplicazione implicita se prima c'è )
+          int pos = id(cursor_pos);
+          if(pos > 0 && id(buffer)[pos-1] == ')') {
+              id(buffer).insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+          
+          id(buffer).insert(id(cursor_pos), "3");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "4"
+    id: btn_4
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos) = 0;
+              }
+              id(last_was_result) = false;
+          }
+          
+          // Moltiplicazione implicita se prima c'è )
+          int pos = id(cursor_pos);
+          if(pos > 0 && id(buffer)[pos-1] == ')') {
+              id(buffer).insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+          
+          id(buffer).insert(id(cursor_pos), "4");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "5"
+    id: btn_5
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos) = 0;
+              }
+              id(last_was_result) = false;
+          }
+          
+          // Moltiplicazione implicita se prima c'è )
+          int pos = id(cursor_pos);
+          if(pos > 0 && id(buffer)[pos-1] == ')') {
+              id(buffer).insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+          
+          id(buffer).insert(id(cursor_pos), "5");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "6"
+    id: btn_6
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos) = 0;
+              }
+              id(last_was_result) = false;
+          }
+          
+          // Moltiplicazione implicita se prima c'è )
+          int pos = id(cursor_pos);
+          if(pos > 0 && id(buffer)[pos-1] == ')') {
+              id(buffer).insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+          
+          id(buffer).insert(id(cursor_pos), "6");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "7"
+    id: btn_7
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos) = 0;
+              }
+              id(last_was_result) = false;
+          }
+          
+          // Moltiplicazione implicita se prima c'è )
+          int pos = id(cursor_pos);
+          if(pos > 0 && id(buffer)[pos-1] == ')') {
+              id(buffer).insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+          
+          id(buffer).insert(id(cursor_pos), "7");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "8"
+    id: btn_8
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos) = 0;
+              }
+              id(last_was_result) = false;
+          }
+          
+          // Moltiplicazione implicita se prima c'è )
+          int pos = id(cursor_pos);
+          if(pos > 0 && id(buffer)[pos-1] == ')') {
+              id(buffer).insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+          
+          id(buffer).insert(id(cursor_pos), "8");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "9"
+    id: btn_9
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos) = 0;
+              }
+              id(last_was_result) = false;
+          }
+          
+          // Moltiplicazione implicita se prima c'è )
+          int pos = id(cursor_pos);
+          if(pos > 0 && id(buffer)[pos-1] == ')') {
+              id(buffer).insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+          
+          id(buffer).insert(id(cursor_pos), "9");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+# DOT
+  - platform: template
+    name: "dot"
+    id: btn_dot
+    on_press:
+      - lambda: |-
+          if(id(last_was_result)) {
+              if(id(buffer).empty() || id(buffer).back() != '(') {
+                  id(buffer).clear();
+                  id(cursor_pos)=0;
+              }
+              id(last_was_result)=false;
+          }
+
+          // Controlla se c'è già un punto nel numero corrente
+          int start = id(cursor_pos)-1;
+          while(start >= 0 && (isdigit(id(buffer)[start]) || id(buffer)[start]=='.')) start--;
+          std::string current_number = id(buffer).substr(start+1, id(cursor_pos)-start-1);
+          if(current_number.find('.') != std::string::npos) return;
+
+          id(buffer).insert(id(cursor_pos), ".");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+# =====================
+# OPERATORI E PARENTESI
+# =====================
+  - platform: template
+    name: "plus"
+    id: btn_plus
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+
+          // Se risultato precedente → continua la formula
+          if (id(last_was_result)) {
+              id(last_was_result) = false;
+              pos = s.length();
+              id(cursor_pos) = pos;
+          }
+
+          // NON inserire all'inizio
+          if (pos == 0) return;
+
+          char prev = s[pos - 1];
+
+          // Inserisci solo se prima c'è numero o ')'
+          if (isdigit(prev) || prev == ')') {
+              s.insert(pos, "+");
+              id(cursor_pos) = pos + 1;
+              id(update_input_display)->execute();
+          }
+
+  - platform: template
+    name: "minus"
+    id: btn_minus
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+
+          if (id(last_was_result)) {
+              id(last_was_result) = false;
+              pos = s.length();
+              id(cursor_pos) = pos;
+          }
+
+          if (pos == 0) return;
+
+          char prev = s[pos - 1];
+
+          if (isdigit(prev) || prev == ')') {
+              s.insert(pos, "-");
+              id(cursor_pos) = pos + 1;
+              id(update_input_display)->execute();
+          }
+
+  - platform: template
+    name: "mult"
+    id: btn_mult
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+
+          if (id(last_was_result)) {
+              id(last_was_result) = false;
+              pos = s.length();
+              id(cursor_pos) = pos;
+          }
+
+          if (pos == 0) return;
+
+          char prev = s[pos - 1];
+
+          if (isdigit(prev) || prev == ')') {
+              s.insert(pos, "*");
+              id(cursor_pos) = pos + 1;
+              id(update_input_display)->execute();
+          }
+
+  - platform: template
+    name: "div"
+    id: btn_div
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+
+          if (id(last_was_result)) {
+              id(last_was_result) = false;
+              pos = s.length();
+              id(cursor_pos) = pos;
+          }
+
+          if (pos == 0) return;
+
+          char prev = s[pos - 1];
+
+          if (isdigit(prev) || prev == ')') {
+              s.insert(pos, "/");
+              id(cursor_pos) = pos + 1;
+              id(update_input_display)->execute();
+          }
+
+  - platform: template
+    name: "open"
+    id: btn_par_open
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+
+          // Carattere PRIMA del cursore
+          char prev = (pos > 0) ? s[pos - 1] : '\0';
+
+          // Moltiplicazione implicita SOLO se non siamo all'inizio
+          if(pos > 0 && (isdigit(prev) || prev == ')')) {
+              s.insert(pos, "*");
+              pos++;
+              id(cursor_pos) = pos;
+          }
+
+          // Inserisci parentesi aperta
+          s.insert(pos, "(");
+          id(cursor_pos) = pos + 1;
+
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "close"
+    id: btn_par_close
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+
+          // Non inserire se buffer vuoto
+          if(s.empty()) return;
+
+          // Controlla carattere precedente
+          if(pos == 0) return; // niente prima del cursore
+          char last = s[pos-1];
+          if(last=='+' || last=='-' || last=='*' || last=='/' || last=='^' || last=='.' || last=='(') return;
+
+          // Conta parentesi aperte fino al cursore
+          int open_count = 0;
+          for(int i=0; i<pos; i++) {
+              if(s[i]=='(') open_count++;
+              else if(s[i]==')') open_count--;
+          }
+          if(open_count <= 0) return;  // Nessuna parentesi aperta da chiudere
+
+          // 🔹 Controlla se si è in mezzo a un numero → non inserire
+          if(pos < s.size() && isdigit(s[pos])) return;
+
+          // 🔹 Controlla se dentro la parentesi c'è qualcosa
+          int last_open = -1;
+          for(int i=pos-1; i>=0; i--) {
+              if(s[i]=='(') { last_open = i; break; }
+          }
+          if(last_open >= 0) {
+              bool has_content = false;
+              for(int i=last_open+1; i<pos; i++) {
+                  if(isdigit(s[i]) || isalpha(s[i]) || s[i]==')') {
+                      has_content = true;
+                      break;
+                  }
+              }
+              if(!has_content) return; // niente dentro la parentesi → non inserire
+          }
+
+          // Inserisci parentesi chiusa
+          s.insert(pos, ")");
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "equal"
+    id: btn_equal
+    on_press:
+      - lambda: |-
+          std::string expr = id(buffer);
+
+          // Controlla parentesi aperte/chiuse
+          int open_par = 0, close_par = 0;
+          for(char c : expr) {
+              if(c=='(') open_par++;
+              else if(c==')') close_par++;
+          }
+
+          if(open_par > close_par) {
+              id(paren_alert) = true;
+              id(paren_alert_count) = open_par - close_par;
+              return;
+          }
+
+          // Calcola risultato
+          double res = evalExpression(expr);
+          id(result) = res;
+          id(last_was_result) = true;
+
+          char buf[32];
+          if(std::isnan(res) || std::isinf(res)) {
+              snprintf(buf, sizeof(buf), "ERROR");
+          } else {
+              double abs_res = std::fabs(res);
+
+              // 🔹 Se troppo grande o troppo piccolo → scientifica
+              if(abs_res >= 1e15 || (abs_res > 0 && abs_res < 1e-7)) {
+                  snprintf(buf, sizeof(buf), "%.7e", res);
+              } else {
+                  // 🔹 Numero normale → massimo 15 cifre totali
+                  char temp[64];
+                  snprintf(temp, sizeof(temp), "%.15f", res);
+
+                  std::string s(temp);
+                  // Rimuove gli zeri finali
+                  while(s.back()=='0') s.pop_back();
+                  if(s.back()=='.') s.pop_back();
+
+                  // Limita a 15 caratteri totali
+                  if(s.length() > 15) s = s.substr(0, 15);
+                  snprintf(buf, sizeof(buf), "%s", s.c_str());
+              }
+          }
+
+          id(buffer) = std::string(buf);
+          id(cursor_pos) = id(buffer).length();
+          id(paren_alert) = false;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "C"
+    id: btn_clear
+    on_press:
+      - lambda: |-
+          id(buffer).clear();
+          id(result)=0; 
+          id(a)=0; 
+          id(b)=0; 
+          id(op)=' '; 
+          id(last_was_result)=false;
+
+          // CURSORE ALLA FINE (inizio buffer vuoto)
+          id(cursor_pos) = id(buffer).length();
+
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "backspace"
+    id: btn_backspace
+    on_press:
+      - lambda: |-
+          std::string& s = id(buffer);
+          if(s.empty() || id(cursor_pos)==0) return;
+
+          int pos = id(cursor_pos) - 1;
+
+          // Lista delle funzioni da trattare come un unico "carattere"
+          const std::vector<std::string> funcs = {
+              "sin(", "cos(", "tan(", "asin(", "acos(", "atan(", "sqrt(", "ln(", "log(", "exp("
+          };
+
+          // Controlla se prima del cursore c'è una funzione
+          for(auto &f : funcs) {
+              int len = f.length();
+              if(pos - len + 1 >= 0 && s.substr(pos - len + 1, len) == f) {
+                  s.erase(pos - len + 1, len);
+                  id(cursor_pos) -= len;
+                  id(update_input_display)->execute();
+                  return;
+              }
+          }
+
+          // Controlla se siamo subito dopo una potenza ^(...)
+          if(s[pos] == ')' && pos > 0) {
+              int depth = 1;
+              int i = pos - 1;
+              while(i >= 0 && depth > 0) {
+                  if(s[i] == ')') depth++;
+                  else if(s[i] == '(') depth--;
+                  i--;
+              }
+              // Controlla se prima della parentesi c'è ^
+              if(i >= 0 && s[i] == '^') {
+                  s.erase(i, pos - i + 1); // cancella ^(...) tutto insieme
+                  id(cursor_pos) = i;
+                  id(update_input_display)->execute();
+                  return;
+              }
+          }
+
+          // Altrimenti cancella un solo carattere
+          s.erase(pos, 1);
+          id(cursor_pos)--;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "cursor_left"
+    id: btn_cursor_left
+    on_press:
+      - lambda: |-
+          if(id(cursor_pos) == 0) return;
+
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos) - 1;
+
+          // 🔹 CASO 1: se siamo subito dopo ')'
+          if(s[pos] == ')') {
+              // entra DENTRO la parentesi
+              id(cursor_pos) = pos;
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // 🔹 CASO 2: se siamo su '('
+          if(s[pos] == '(') {
+              pos--;
+
+              // se c'è un '^' prima → salta
+              if(pos >= 0 && s[pos] == '^') pos--;
+
+              // se ci sono lettere → salta nome funzione
+              while(pos >= 0 && isalpha(s[pos])) pos--;
+
+              id(cursor_pos) = pos + 1;
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // 🔹 CASO 3: movimento normale
+          id(cursor_pos)--;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "cursor_right"
+    id: btn_cursor_right
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int len = s.length();
+          int pos = id(cursor_pos);
+
+          if(pos >= len) return;
+
+          // 🔹 CASO 1: funzione (lettere seguite da '(')
+          if(isalpha(s[pos])) {
+              int i = pos;
+              while(i < len && isalpha(s[i])) i++;
+
+              if(i < len && s[i] == '(') {
+                  // entra dentro la funzione
+                  id(cursor_pos) = i + 1;
+                  id(update_input_display)->execute();
+                  return;
+              }
+          }
+
+          // 🔹 CASO 2: '(' normale → entra
+          if(s[pos] == '(') {
+              id(cursor_pos) = pos + 1;
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // 🔹 CASO 3: ')'
+          if(s[pos] == ')') {
+              id(cursor_pos) = pos + 1;
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // 🔹 CASO 4: default
+          id(cursor_pos)++;
+          id(update_input_display)->execute();
+
+# =====================
+# CURSOR HOME (inizio)
+# =====================
+  - platform: template
+    name: "cursor_home"
+    id: btn_cursor_home
+    on_press:
+      - lambda: |-
+          id(cursor_pos) = 0;
+          id(update_input_display)->execute();
+
+# =====================
+# CURSOR END (fine)
+# =====================
+  - platform: template
+    name: "cursor_end"
+    id: btn_cursor_end
+    on_press:
+      - lambda: |-
+          id(cursor_pos) = id(buffer).length();
+          id(update_input_display)->execute();
+
+# =====================
+# FUNZIONI SCIENTIFICHE
+# =====================
+  - platform: template
+    name: "NEG"
+    id: btn_neg_all
+    on_press:
+      - lambda: |-
+          std::string& s = id(buffer);
+
+          // CASO 0: risultato già calcolato
+          if (id(last_was_result)) {
+              id(result) = -id(result);
+              char buf[32];
+              snprintf(buf, sizeof(buf), "%.15g", id(result));
+              s = buf;
+              id(last_was_result) = true;
+              id(cursor_pos) = s.length();
+              id(update_result_display)->execute();
+              return;
+          }
+
+          if(s.empty()) {
+              s += "-";
+              id(cursor_pos)++;
+              id(update_input_display)->execute();
+              return;
+          }
+
+          char last = s.back();
+
+          // CASO 1: termina con ')'
+          if(last == ')') {
+              int depth = 0;
+              int i = s.size() - 1;
+              for(; i >= 0; i--) {
+                  if(s[i] == ')') depth++;
+                  else if(s[i] == '(') {
+                      depth--;
+                      if(depth == 0) break;
+                  }
+              }
+              if(i < 0) return;
+
+              // 🔹 NUOVO: verifica se è argomento di funzione
+              int func_start = i - 1;
+              while(func_start >= 0 && isalpha(s[func_start])) func_start--;
+
+              bool is_function = (func_start < i - 1);
+
+              if(is_function) {
+                  // toggle su -sqrt(...)
+                  if(func_start >= 0 && s[func_start] == '-' &&
+                    (func_start == 0 || strchr("+-*/^(", s[func_start-1]))) {
+                      s.erase(func_start, 1);
+                  } else {
+                      s.insert(func_start + 1, "-");
+                  }
+              } else {
+                  // toggle normale su (...)
+                  if(i > 0 && s[i-1] == '-' &&
+                    (i-1 == 0 || strchr("+-*/^(", s[i-2]))) {
+                      s.erase(i-1, 1);
+                  } else {
+                      s.insert(i, "-");
+                  }
+              }
+
+              id(cursor_pos) = s.length();
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // CASO 2: termina con numero
+          if(isdigit(last) || last == '.') {
+              int i = s.size() - 1;
+              while(i >= 0 && (isdigit(s[i]) || s[i]=='.')) i--;
+
+              // Controlla se c'è un ^ prima del numero finale
+              if(i >= 0 && s[i] == '^') {
+                  if(s.size() >= 3 && s[0] == '-' && s[1]=='(' && s.back()==')') {
+                      s = s.substr(2, s.size()-3); // rimuove -(...)
+                  } else {
+                      s = "-(" + s + ")";
+                  }
+                  id(cursor_pos) = s.length();
+                  id(update_input_display)->execute();
+                  return;
+              }
+
+              // Toggle unario sul numero
+              if(i>=0 && s[i]=='-' &&
+                (i==0 || s[i-1]=='(' || s[i-1]=='+' || s[i-1]=='-' || s[i-1]=='*' || s[i-1]=='/' || s[i-1]=='^')) {
+                  s.erase(i,1);
+              } else {
+                  s.insert(i+1, "-");
+              }
+              id(cursor_pos) = s.length();
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // CASO 3: termina con operatore o '('
+          if(last=='+' || last=='-' || last=='*' || last=='/' || last=='^') {
+              // dopo un operatore NON fare nulla
+              return;
+          }
+
+          // se termina con '(' → inserisci meno unario
+          if(last=='(') {
+              s += "-";
+              id(cursor_pos)++;
+              id(update_input_display)->execute();
+              return;
+          }
+
+  - platform: template
+    name: "+/- exp"
+    id: btn_neg_exp
+    on_press:
+      - lambda: |-
+          std::string& s = id(buffer);
+
+          // CASO 0: risultato già calcolato
+          if(id(last_was_result)) {
+              id(result) = -id(result);
+              char buf[32];
+              snprintf(buf, sizeof(buf), "%.15g", id(result));
+              s = buf;
+              id(cursor_pos) = s.length();
+              id(update_result_display)->execute();
+              return;
+          }
+
+          // Trova l'ultimo ^
+          int p = s.find_last_of('^');
+          if(p == std::string::npos) return;
+
+          // =========================
+          // CASO ^(...)
+          // =========================
+          if(p + 1 < s.size() && s[p + 1] == '(') {
+
+              // toggle del -
+              if(p + 2 < s.size() && s[p + 2] == '-') {
+                  s.erase(p + 2, 1);
+              } else {
+                  s.insert(p + 2, "-");
+              }
+
+              // trova fine parentesi
+              int depth = 1;
+              int i = p + 2;
+              while(++i < s.size() && depth > 0) {
+                  if(s[i] == '(') depth++;
+                  else if(s[i] == ')') depth--;
+              }
+
+              id(cursor_pos) = i;   // ← DOPO l'esponente
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // =========================
+          // CASO ^numero
+          // =========================
+          int i = p + 1;
+
+          // toggle -
+          if(i < s.size() && s[i] == '-') {
+              s.erase(i, 1);
+          } else if(i < s.size() && (isdigit(s[i]) || s[i] == '.')) {
+              s.insert(i, "-");
+          } else {
+              return;
+          }
+
+          // scorri fino a fine numero
+          int end = p + 1;
+          if(s[end] == '-') end++;
+          while(end < s.size() && (isdigit(s[end]) || s[end] == '.')) end++;
+
+          id(cursor_pos) = end;   // ← cursore DOPO l'esponente
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "sin"
+    id: btn_sin
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          bool add_mul = (pos > 0 && (isdigit(s[pos-1]) || s[pos-1] == ')'));
+          std::string to_insert = add_mul ? "*sin(" : "sin(";
+          s.insert(pos, to_insert);
+          id(cursor_pos) = pos + to_insert.size();
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "cos"
+    id: btn_cos
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          bool add_mul = (pos > 0 && (isdigit(s[pos-1]) || s[pos-1] == ')'));
+          std::string to_insert = add_mul ? "*cos(" : "cos(";
+          s.insert(pos, to_insert);
+          id(cursor_pos) = pos + to_insert.size();
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "tan"
+    id: btn_tan
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          bool add_mul = (pos > 0 && (isdigit(s[pos-1]) || s[pos-1] == ')'));
+          std::string to_insert = add_mul ? "*tan(" : "tan(";
+          s.insert(pos, to_insert);
+          id(cursor_pos) = pos + to_insert.size();
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "asin"
+    id: btn_asin
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          bool add_mul = (pos > 0 && (isdigit(s[pos-1]) || s[pos-1] == ')'));
+          std::string to_insert = add_mul ? "*asin(" : "asin(";
+          s.insert(pos, to_insert);
+          id(cursor_pos) = pos + to_insert.size();
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "acos"
+    id: btn_acos
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          bool add_mul = (pos > 0 && (isdigit(s[pos-1]) || s[pos-1] == ')'));
+          std::string to_insert = add_mul ? "*acos(" : "acos(";
+          s.insert(pos, to_insert);
+          id(cursor_pos) = pos + to_insert.size();
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "atan"
+    id: btn_atan
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          bool add_mul = (pos > 0 && (isdigit(s[pos-1]) || s[pos-1] == ')'));
+          std::string to_insert = add_mul ? "*atan(" : "atan(";
+          s.insert(pos, to_insert);
+          id(cursor_pos) = pos + to_insert.size();
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "sqrt"
+    id: btn_sqrt
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+
+          // Se buffer vuoto → inserisci solo sqrt(
+          if(s.empty()) {
+              s = "sqrt(";
+              id(cursor_pos) = s.length();
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // Controlla se prima del cursore serve *
+          bool add_mul = false;
+          if(pos > 0) {
+              char prev = s[pos-1];
+              if(isdigit(prev) || prev == ')') add_mul = true;
+          }
+
+          std::string to_insert = add_mul ? "*sqrt(" : "sqrt(";
+          s.insert(pos, to_insert);
+          id(cursor_pos) = pos + to_insert.size();
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "ln"
+    id: btn_ln
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          bool add_mul = (pos > 0 && (isdigit(s[pos-1]) || s[pos-1] == ')'));
+          std::string to_insert = add_mul ? "*ln(" : "ln(";
+          s.insert(pos, to_insert);
+          id(cursor_pos) = pos + to_insert.size();
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "log"
+    id: btn_log
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          bool add_mul = (pos > 0 && (isdigit(s[pos-1]) || s[pos-1] == ')'));
+          std::string to_insert = add_mul ? "*log(" : "log(";
+          s.insert(pos, to_insert);
+          id(cursor_pos) = pos + to_insert.size();
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "exp"
+    id: btn_exp
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          bool add_mul = (pos > 0 && (isdigit(s[pos-1]) || s[pos-1] == ')'));
+          std::string to_insert = add_mul ? "*exp(" : "exp(";
+          s.insert(pos, to_insert);
+          id(cursor_pos) = pos + to_insert.size();
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "x2"
+    id: btn_pow2
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          if(pos == 0) return;
+          char last = s[pos-1];
+          if(!isdigit(last) && last != ')') return;
+          s.insert(pos, "^2");
+          id(cursor_pos) = pos + 2;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "x3"
+    id: btn_pow3
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          if(pos == 0) return;
+          char last = s[pos-1];
+          if(!isdigit(last) && last != ')') return;
+          s.insert(pos, "^3");
+          id(cursor_pos) = pos + 2;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "x^y"
+    id: btn_pow
+    on_press:
+      - lambda: |-
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+          if(pos == 0) return;
+          char last = s[pos-1];
+          if(!isdigit(last) && last != ')') return;
+          s.insert(pos, "^");
+          id(cursor_pos) = pos + 1;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "pi"
+    id: btn_pi
+    on_press:
+      - lambda: |-
+          // Non inserire dopo risultato, ')' o numero
+          if(id(last_was_result)) return;
+          if(!id(buffer).empty() && (id(buffer).back() == ')' || isdigit(id(buffer).back()))) return;
+
+          id(buffer).insert(id(cursor_pos), "3.1415926535");
+          id(cursor_pos) += 12;
+          id(update_input_display)->execute();
+
+  - platform: template
+    name: "e"
+    id: btn_e
+    on_press:
+      - lambda: |-
+          // Non inserire dopo risultato, ')' o numero
+          if(id(last_was_result)) return;
+          if(!id(buffer).empty() && (id(buffer).back() == ')' || isdigit(id(buffer).back()))) return;
+
+          id(buffer).insert(id(cursor_pos), "2.7182818284");
+          id(cursor_pos) += 12;
+          id(update_input_display)->execute();
+
+# =====================
+# INTERVALLO PER LAMPEGGIO CURSORE
+# =====================
+interval:
+  - interval: 500ms
+    then:
+      - script.execute: update_input_display

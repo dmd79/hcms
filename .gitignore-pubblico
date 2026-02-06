@@ -1,0 +1,12 @@
+# Ignora tutto di default
+*
+*/
+
+# Eccetto i file e cartelle pubbliche
+!hcms.yaml
+!Calculator/
+!Calculator/**
+!LedDisplay/
+!LedDisplay/**
+!.gitignore-pubblico
+!README.md
