@@ -19,19 +19,52 @@ std::map<std::string, OpInfo> operators = {
     {"-",   {1, false}},
     {"*",   {2, false}},
     {"/",   {2, false}},
+    {"%",   {2, false}},  // modulo
     {"NEG", {3, true}},   // meno unario
     {"^",   {4, true}}
 };
 
-// Funzioni supportate
+// Funzioni supportate (trigonometriche in gradi)
 std::map<std::string, std::function<double(double)>> functions = {
-    {"sin", [](double x){ return sin(x*M_PI/180.0); }},
-    {"cos", [](double x){ return cos(x*M_PI/180.0); }},
-    {"tan", [](double x){ return tan(x*M_PI/180.0); }},
-    {"sqrt",[](double x){ return sqrt(x); }},
-    {"ln",  [](double x){ return log(x); }},
-    {"log", [](double x){ return log10(x); }},
-    {"exp",  [](double x){ return exp(x); }}
+    // Trigonometriche (input in gradi)
+    {"sin",   [](double x){ return sin(x*M_PI/180.0); }},
+    {"cos",   [](double x){ return cos(x*M_PI/180.0); }},
+    {"tan",   [](double x){ return tan(x*M_PI/180.0); }},
+    {"asin",  [](double x){ return asin(x)*180.0/M_PI; }},
+    {"acos",  [](double x){ return acos(x)*180.0/M_PI; }},
+    {"atan",  [](double x){ return atan(x)*180.0/M_PI; }},
+    
+    // Iperboliche
+    {"sinh",  [](double x){ return sinh(x); }},
+    {"cosh",  [](double x){ return cosh(x); }},
+    {"tanh",  [](double x){ return tanh(x); }},
+    
+    // Logaritmi ed esponenziali
+    {"sqrt",  [](double x){ return sqrt(x); }},
+    {"cbrt",  [](double x){ return cbrt(x); }},  // radice cubica
+    {"ln",    [](double x){ return log(x); }},
+    {"log",   [](double x){ return log10(x); }},
+    {"log2",  [](double x){ return log2(x); }},
+    {"exp",   [](double x){ return exp(x); }},
+    
+    // Altre funzioni matematiche
+    {"abs",   [](double x){ return fabs(x); }},
+    {"ceil",  [](double x){ return ceil(x); }},
+    {"floor", [](double x){ return floor(x); }},
+    {"round", [](double x){ return round(x); }},
+    
+    // Funzioni avanzate
+    {"factorial", std::function<double(double)>([](double x) {
+        if(x < 0 || x != floor(x)) return static_cast<double>(NAN);
+        if(x > 170) return static_cast<double>(INFINITY);
+        double result = 1.0;
+        for(int i = 2; i <= (int)x; i++) result *= static_cast<double>(i);
+        return result;
+    })},
+    
+    // Conversioni angolari
+    {"deg",   [](double x){ return x*180.0/M_PI; }},  // rad -> deg
+    {"rad",   [](double x){ return x*M_PI/180.0; }}   // deg -> rad
 };
 
 // Tokenizza l'espressione
@@ -78,6 +111,7 @@ double evalExpression(const std::string &expr) {
         if(op=="-") return a-b;
         if(op=="*") return a*b;
         if(op=="/") return (b!=0)?a/b:NAN;
+        if(op=="%") return fmod(a,b);  // modulo
         if(op=="^") return pow(a,b);
         return NAN;
     };
@@ -178,4 +212,17 @@ double evalExpression(const std::string &expr) {
     }
 
     return values.top();
+}
+
+// Verifica bilanciamento parentesi
+bool parenthesesBalanced(const std::string &s) {
+    int count = 0;
+    for (char c : s) {
+        if (c == '(') count++;
+        else if (c == ')') {
+            count--;
+            if (count < 0) return false;
+        }
+    }
+    return count == 0;
 }
