@@ -94,6 +94,10 @@ globals:
   - id: paren_alert_count
     type: int
     initial_value: '0'
+  - id: last_formula
+    type: std::string
+    restore_value: false
+    initial_value: ""
 
 # =====================
 # SCRIPT DISPLAY
@@ -749,6 +753,9 @@ button:
       - lambda: |-
           std::string expr = id(buffer);
 
+          // Salva la formula prima di calcolare
+          id(last_formula) = expr;
+
           // Controlla parentesi aperte/chiuse
           int open_par = 0, close_par = 0;
           for(char c : expr) {
@@ -813,6 +820,19 @@ button:
           id(cursor_pos) = id(buffer).length();
 
           id(update_input_display)->execute();
+
+  - platform: template
+    name: "UNDO"
+    id: btn_undo
+    on_press:
+      - lambda: |-
+          // Ripristina l'ultima formula solo se abbiamo appena calcolato un risultato
+          if(id(last_was_result) && !id(last_formula).empty()) {
+              id(buffer) = id(last_formula);
+              id(cursor_pos) = id(buffer).length();
+              id(last_was_result) = false;
+              id(update_input_display)->execute();
+          }
 
   - platform: template
     name: "backspace"
