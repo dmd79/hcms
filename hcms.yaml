@@ -505,13 +505,42 @@ button:
               id(last_was_result)=false;
           }
 
+          std::string &s = id(buffer);
+          int pos = id(cursor_pos);
+
+          // Se buffer vuoto o cursore all'inizio, aggiungi "0."
+          if(s.empty() || pos == 0) {
+              s.insert(pos, "0.");
+              id(cursor_pos) += 2;
+              id(update_input_display)->execute();
+              return;
+          }
+
+          char prev = s[pos-1];
+
+          // Se prima del cursore c'è ), aggiungi "*0."
+          if(prev == ')') {
+              s.insert(pos, "*0.");
+              id(cursor_pos) += 3;
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // Se prima del cursore c'è un operatore, aggiungi "0."
+          if(prev == '+' || prev == '-' || prev == '*' || prev == '/' || prev == '^' || prev == '%' || prev == '(') {
+              s.insert(pos, "0.");
+              id(cursor_pos) += 2;
+              id(update_input_display)->execute();
+              return;
+          }
+
           // Controlla se c'è già un punto nel numero corrente
-          int start = id(cursor_pos)-1;
-          while(start >= 0 && (isdigit(id(buffer)[start]) || id(buffer)[start]=='.')) start--;
-          std::string current_number = id(buffer).substr(start+1, id(cursor_pos)-start-1);
+          int start = pos - 1;
+          while(start >= 0 && (isdigit(s[start]) || s[start]=='.')) start--;
+          std::string current_number = s.substr(start+1, pos-start-1);
           if(current_number.find('.') != std::string::npos) return;
 
-          id(buffer).insert(id(cursor_pos), ".");
+          s.insert(pos, ".");
           id(cursor_pos)++;
           id(update_input_display)->execute();
 
@@ -1267,6 +1296,7 @@ button:
     on_press:
       - lambda: |-
           std::string& s = id(buffer);
+          int pos = id(cursor_pos);
 
           // CASO 0: risultato già calcolato
           if (id(last_was_result)) {
@@ -1280,6 +1310,7 @@ button:
               return;
           }
 
+          // Buffer vuoto → aggiungi -
           if(s.empty()) {
               s += "-";
               id(cursor_pos)++;
@@ -1287,90 +1318,203 @@ button:
               return;
           }
 
-          char last = s.back();
-
-          // CASO 1: termina con ')'
-          if(last == ')') {
-              int depth = 0;
-              int i = s.size() - 1;
-              for(; i >= 0; i--) {
-                  if(s[i] == ')') depth++;
-                  else if(s[i] == '(') {
-                      depth--;
-                      if(depth == 0) break;
-                  }
-              }
-              if(i < 0) return;
-
-              // 🔹 NUOVO: verifica se è argomento di funzione
-              int func_start = i - 1;
-              while(func_start >= 0 && isalpha(s[func_start])) func_start--;
-
-              bool is_function = (func_start < i - 1);
-
-              if(is_function) {
-                  // toggle su -sqrt(...)
-                  if(func_start >= 0 && s[func_start] == '-' &&
-                    (func_start == 0 || strchr("+-*/^%(", s[func_start-1]))) {
-                      s.erase(func_start, 1);
-                  } else {
-                      s.insert(func_start + 1, "-");
-                  }
-              } else {
-                  // toggle normale su (...)
-                  if(i > 0 && s[i-1] == '-' &&
-                    (i-1 == 0 || strchr("+-*/^%(", s[i-2]))) {
-                      s.erase(i-1, 1);
-                  } else {
-                      s.insert(i, "-");
-                  }
-              }
-
-              id(cursor_pos) = s.length();
+          // Buffer contiene solo "-" → rimuovi
+          if(s == "-") {
+              s.clear();
+              id(cursor_pos) = 0;
               id(update_input_display)->execute();
               return;
           }
 
-          // CASO 2: termina con numero
-          if(isdigit(last) || last == '.') {
-              int i = s.size() - 1;
+          // ===== LOGICA BASATA SUL CURSORE =====
+
+          // Se cursore a inizio buffer → aggiungi/rimuovi - all'inizio
+          if(pos == 0) {
+              if(s[0] == '-') {
+                  s.erase(0, 1);
+              } else {
+                  s.insert(0, "-");
+                  id(cursor_pos) = 1;
+              }
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // Se cursore è subito dopo un - iniziale, rimuovilo
+          if(pos == 1 && s[0] == '-') {
+              s.erase(0, 1);
+              id(cursor_pos) = 0;
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // Carattere PRIMA e DOPO il cursore
+          char prev = s[pos - 1];
+          char curr = (pos < s.length()) ? s[pos] : '\0';
+
+          // PRIORITÀ 1: Se il cursore è DOPO un numero, agisci sul numero
+          if(isdigit(prev) || prev == '.') {
+              // Trova INIZIO del numero
+              int i = pos - 1;
               while(i >= 0 && (isdigit(s[i]) || s[i]=='.')) i--;
+              int num_start = i + 1;
 
-              // Controlla se c'è un ^ prima del numero finale
-              if(i >= 0 && s[i] == '^') {
-                  if(s.size() >= 3 && s[0] == '-' && s[1]=='(' && s.back()==')') {
-                      s = s.substr(2, s.size()-3); // rimuove -(...)
-                  } else {
-                      s = "-(" + s + ")";
-                  }
-                  id(cursor_pos) = s.length();
-                  id(update_input_display)->execute();
-                  return;
-              }
-
-              // Toggle unario sul numero
-              if(i>=0 && s[i]=='-' &&
-                (i==0 || s[i-1]=='(' || s[i-1]=='+' || s[i-1]=='-' || s[i-1]=='*' || s[i-1]=='/' || s[i-1]=='^' || s[i-1]=='%')) {
-                  s.erase(i,1);
+              // Toggle - all'INIZIO del numero
+              if(i >= 0 && s[i] == '-' &&
+                 (i == 0 || strchr("+-*/^%(", s[i - 1]))) {
+                  s.erase(i, 1);
+                  id(cursor_pos)--;
               } else {
-                  s.insert(i+1, "-");
+                  s.insert(num_start, "-");
+                  id(cursor_pos)++;
               }
-              id(cursor_pos) = s.length();
+
               id(update_input_display)->execute();
               return;
           }
 
-          // CASO 3: termina con operatore o '('
-          if(last=='+' || last=='-' || last=='*' || last=='/' || last=='^' || last=='%') {
-              // dopo un operatore NON fare nulla
+          // PRIORITÀ 2: Se il cursore è SU un numero (carattere dopo), agisci sul numero
+          if(isdigit(curr) || curr == '.') {
+              // Trova INIZIO del numero
+              int i = pos;
+              while(i >= 0 && (isdigit(s[i]) || s[i]=='.')) i--;
+              int num_start = i + 1;
+
+              // Toggle - all'INIZIO del numero
+              if(i >= 0 && s[i] == '-' &&
+                 (i == 0 || strchr("+-*/^%(", s[i - 1]))) {
+                  s.erase(i, 1);
+                  id(cursor_pos)--;
+              } else {
+                  s.insert(num_start, "-");
+                  id(cursor_pos)++;
+              }
+
+              id(update_input_display)->execute();
               return;
           }
 
-          // se termina con '(' → inserisci meno unario
-          if(last=='(') {
-              s += "-";
+          // PRIORITÀ 3: Se il cursore è SU una lettera (funzione), agisci sulla funzione
+          if(isalpha(curr)) {
+              // Trova INIZIO del nome della funzione
+              int i = pos;
+              while(i >= 0 && isalpha(s[i])) i--;
+              int func_start = i + 1;
+
+              // Toggle - all'INIZIO della funzione
+              if(i >= 0 && s[i] == '-' &&
+                 (i == 0 || strchr("+-*/^%(", s[i - 1]))) {
+                  s.erase(i, 1);
+                  id(cursor_pos)--;
+              } else {
+                  s.insert(func_start, "-");
+                  id(cursor_pos)++;
+              }
+
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // PRIORITÀ 4: Se il cursore è SU '(', agisci PRIMA della '('
+          if(curr == '(') {
+              // Controlla se è una funzione
+              int i = pos - 1;
+              while(i >= 0 && isalpha(s[i])) i--;
+              int func_start = i + 1;
+
+              if(func_start < pos) {
+                  // È una funzione: toggle - prima del nome della funzione
+                  if(i >= 0 && s[i] == '-' &&
+                     (i == 0 || strchr("+-*/^%(", s[i - 1]))) {
+                      s.erase(i, 1);
+                      id(cursor_pos)--;
+                  } else {
+                      s.insert(func_start, "-");
+                      id(cursor_pos)++;
+                  }
+              } else {
+                  // Parentesi normale: toggle - prima della '('
+                  if(pos > 0 && s[pos - 1] == '-' &&
+                     (pos - 1 == 0 || strchr("+-*/^%(", s[pos - 2]))) {
+                      s.erase(pos - 1, 1);
+                      id(cursor_pos)--;
+                  } else {
+                      s.insert(pos, "-");
+                      id(cursor_pos)++;
+                  }
+              }
+
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // CASO 1: Cursore su un operatore → toggle - prima dell'operatore
+          if(strchr("+-*/^%", prev)) {
+              int op_pos = pos - 1;
+              // Controlla se c'è già un - prima dell'operatore
+              if(op_pos > 0 && s[op_pos - 1] == '-') {
+                  // Controlla che il - sia un meno unario, non un operatore
+                  if(op_pos - 1 == 0 || strchr("+-*/^%(", s[op_pos - 2])) {
+                      s.erase(op_pos - 1, 1);
+                      id(cursor_pos)--;
+                      id(update_input_display)->execute();
+                      return;
+                  }
+              }
+              // Altrimenti aggiungi -
+              s.insert(op_pos, "-");
               id(cursor_pos)++;
               id(update_input_display)->execute();
+              return;
+          }
+
+          // CASO 2: Cursore dopo ')'
+          if(prev == ')') {
+              // Trova la '(' corrispondente
+              int depth = 1;
+              int i = pos - 2;
+              while(i >= 0 && depth > 0) {
+                  if(s[i] == ')') depth++;
+                  else if(s[i] == '(') depth--;
+                  i--;
+              }
+              int open_pos = i + 1;
+
+              // Controlla se è una funzione (lettere prima della '(')
+              int func_start = open_pos - 1;
+              while(func_start >= 0 && isalpha(s[func_start])) func_start--;
+              func_start++;
+
+              bool is_function = (func_start < open_pos);
+
+              if(is_function) {
+                  // È una funzione: toggle del - PRIMA del nome della funzione
+                  if(func_start > 0 && s[func_start - 1] == '-' &&
+                     (func_start - 1 == 0 || strchr("+-*/^%(", s[func_start - 2]))) {
+                      s.erase(func_start - 1, 1);
+                      id(cursor_pos)--;
+                  } else {
+                      s.insert(func_start, "-");
+                      id(cursor_pos)++;
+                  }
+              } else {
+                  // Parentesi normale: toggle del - PRIMA della '('
+                  if(open_pos > 0 && s[open_pos - 1] == '-' &&
+                     (open_pos - 1 == 0 || strchr("+-*/^%(", s[open_pos - 2]))) {
+                      s.erase(open_pos - 1, 1);
+                      id(cursor_pos)--;
+                  } else {
+                      s.insert(open_pos, "-");
+                      id(cursor_pos)++;
+                  }
+              }
+
+              id(update_input_display)->execute();
+              return;
+          }
+
+          // CASO 3: Cursore dopo '(' → non fare nulla
+          if(prev == '(') {
               return;
           }
 
