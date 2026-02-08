@@ -98,6 +98,18 @@ globals:
     type: std::string
     restore_value: false
     initial_value: ""
+  - id: mem1
+    type: std::string
+    restore_value: true
+    initial_value: ""
+  - id: mem2
+    type: std::string
+    restore_value: true
+    initial_value: ""
+  - id: mem3
+    type: std::string
+    restore_value: true
+    initial_value: ""
 
 # =====================
 # SCRIPT DISPLAY
@@ -831,6 +843,54 @@ button:
               id(buffer) = id(last_formula);
               id(cursor_pos) = id(buffer).length();
               id(last_was_result) = false;
+              id(update_input_display)->execute();
+          }
+
+  - platform: template
+    name: "MEM1"
+    id: btn_mem1
+    on_press:
+      - lambda: |-
+          // Se memoria vuota → salva valore corrente
+          if(id(mem1).empty()) {
+              id(mem1) = id(buffer);
+          } 
+          // Se memoria piena → richiama e cancella memoria
+          else {
+              id(buffer) = id(mem1);
+              id(cursor_pos) = id(buffer).length();
+              id(last_was_result) = false;
+              id(mem1).clear();
+              id(update_input_display)->execute();
+          }
+
+  - platform: template
+    name: "MEM2"
+    id: btn_mem2
+    on_press:
+      - lambda: |-
+          if(id(mem2).empty()) {
+              id(mem2) = id(buffer);
+          } else {
+              id(buffer) = id(mem2);
+              id(cursor_pos) = id(buffer).length();
+              id(last_was_result) = false;
+              id(mem2).clear();
+              id(update_input_display)->execute();
+          }
+
+  - platform: template
+    name: "MEM3"
+    id: btn_mem3
+    on_press:
+      - lambda: |-
+          if(id(mem3).empty()) {
+              id(mem3) = id(buffer);
+          } else {
+              id(buffer) = id(mem3);
+              id(cursor_pos) = id(buffer).length();
+              id(last_was_result) = false;
+              id(mem3).clear();
               id(update_input_display)->execute();
           }
 
