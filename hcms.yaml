@@ -13,7 +13,7 @@ esphome:
           static auto my_display_1 = new LedDisplay(25, 26, 27, 14, 12, 16);
           my_display_1->begin();
           my_display_1->clear();
-          my_display_1->setBrightness(15);
+          my_display_1->setBrightness(8);
 
           // Imposta cursore alla fine del buffer all'avvio
           id(cursor_pos) = id(buffer).length();
