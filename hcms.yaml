@@ -851,16 +851,23 @@ button:
     id: btn_mem1
     on_press:
       - lambda: |-
-          // Se memoria vuota → salva valore corrente
           if(id(mem1).empty()) {
               id(mem1) = id(buffer);
-          } 
-          // Se memoria piena → richiama e cancella memoria
-          else {
-              id(buffer) = id(mem1);
-              id(cursor_pos) = id(buffer).length();
+          } else {
+              std::string &s = id(buffer);
+              int pos = id(cursor_pos);
+              
+              if(!s.empty() && pos > 0) {
+                  char prev = s[pos - 1];
+                  if(isdigit(prev) || prev == ')') {
+                      s.insert(pos, "*");
+                      pos++;
+                  }
+              }
+              
+              s.insert(pos, id(mem1));
+              id(cursor_pos) = pos + id(mem1).length();
               id(last_was_result) = false;
-              id(mem1).clear();
               id(update_input_display)->execute();
           }
 
@@ -872,10 +879,20 @@ button:
           if(id(mem2).empty()) {
               id(mem2) = id(buffer);
           } else {
-              id(buffer) = id(mem2);
-              id(cursor_pos) = id(buffer).length();
+              std::string &s = id(buffer);
+              int pos = id(cursor_pos);
+              
+              if(!s.empty() && pos > 0) {
+                  char prev = s[pos - 1];
+                  if(isdigit(prev) || prev == ')') {
+                      s.insert(pos, "*");
+                      pos++;
+                  }
+              }
+              
+              s.insert(pos, id(mem2));
+              id(cursor_pos) = pos + id(mem2).length();
               id(last_was_result) = false;
-              id(mem2).clear();
               id(update_input_display)->execute();
           }
 
@@ -887,12 +904,31 @@ button:
           if(id(mem3).empty()) {
               id(mem3) = id(buffer);
           } else {
-              id(buffer) = id(mem3);
-              id(cursor_pos) = id(buffer).length();
+              std::string &s = id(buffer);
+              int pos = id(cursor_pos);
+              
+              if(!s.empty() && pos > 0) {
+                  char prev = s[pos - 1];
+                  if(isdigit(prev) || prev == ')') {
+                      s.insert(pos, "*");
+                      pos++;
+                  }
+              }
+              
+              s.insert(pos, id(mem3));
+              id(cursor_pos) = pos + id(mem3).length();
               id(last_was_result) = false;
-              id(mem3).clear();
               id(update_input_display)->execute();
           }
+
+  - platform: template
+    name: "MEM CLR"
+    id: btn_mem_clear
+    on_press:
+      - lambda: |-
+          id(mem1).clear();
+          id(mem2).clear();
+          id(mem3).clear();
 
   - platform: template
     name: "backspace"
