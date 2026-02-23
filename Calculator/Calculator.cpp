@@ -29,30 +29,56 @@ std::map<std::string, std::function<double(double)>> functions = {
     // Trigonometriche (input in gradi)
     {"sin",   [](double x){ return sin(x*M_PI/180.0); }},
     {"cos",   [](double x){ return cos(x*M_PI/180.0); }},
-    {"tan",   [](double x){ return tan(x*M_PI/180.0); }},
-    {"asin",  [](double x){ return asin(x)*180.0/M_PI; }},
-    {"acos",  [](double x){ return acos(x)*180.0/M_PI; }},
+    {"tan",   [](double x){
+        // Gestisci casi speciali (90°, 270°, ecc.)
+        double normalized = fmod(x, 360.0);
+        if (normalized < 0) normalized += 360.0;
+        if (fabs(normalized - 90.0) < 1e-10 || fabs(normalized - 270.0) < 1e-10) {
+            return static_cast<double>(NAN); // tan(90°) = infinito
+        }
+        return tan(x*M_PI/180.0);
+    }},
+    {"asin",  [](double x){
+        if (x < -1.0 || x > 1.0) return static_cast<double>(NAN);
+        return asin(x)*180.0/M_PI;
+    }},
+    {"acos",  [](double x){
+        if (x < -1.0 || x > 1.0) return static_cast<double>(NAN);
+        return acos(x)*180.0/M_PI;
+    }},
     {"atan",  [](double x){ return atan(x)*180.0/M_PI; }},
-    
+
     // Iperboliche
     {"sinh",  [](double x){ return sinh(x); }},
     {"cosh",  [](double x){ return cosh(x); }},
     {"tanh",  [](double x){ return tanh(x); }},
-    
+
     // Logaritmi ed esponenziali
-    {"sqrt",  [](double x){ return sqrt(x); }},
+    {"sqrt",  [](double x){
+        if (x < 0) return static_cast<double>(NAN);
+        return sqrt(x);
+    }},
     {"cbrt",  [](double x){ return cbrt(x); }},  // radice cubica
-    {"ln",    [](double x){ return log(x); }},
-    {"log",   [](double x){ return log10(x); }},
-    {"log2",  [](double x){ return log2(x); }},
+    {"ln",    [](double x){
+        if (x <= 0) return static_cast<double>(NAN);
+        return log(x);
+    }},
+    {"log",   [](double x){
+        if (x <= 0) return static_cast<double>(NAN);
+        return log10(x);
+    }},
+    {"log2",  [](double x){
+        if (x <= 0) return static_cast<double>(NAN);
+        return log2(x);
+    }},
     {"exp",   [](double x){ return exp(x); }},
-    
+
     // Altre funzioni matematiche
     {"abs",   [](double x){ return fabs(x); }},
     {"ceil",  [](double x){ return ceil(x); }},
     {"floor", [](double x){ return floor(x); }},
     {"round", [](double x){ return round(x); }},
-    
+
     // Funzioni avanzate
     {"factorial", std::function<double(double)>([](double x) {
         if(x < 0 || x != floor(x)) return static_cast<double>(NAN);
@@ -61,7 +87,7 @@ std::map<std::string, std::function<double(double)>> functions = {
         for(int i = 2; i <= (int)x; i++) result *= static_cast<double>(i);
         return result;
     })},
-    
+
     // Conversioni angolari
     {"deg",   [](double x){ return x*180.0/M_PI; }},  // rad -> deg
     {"rad",   [](double x){ return x*M_PI/180.0; }}   // deg -> rad
