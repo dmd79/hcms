@@ -1,6 +1,9 @@
 esphome:
   name: hcms
   friendly_name: hcms
+  platformio_options:
+    board_build.flash_mode: dio
+    build_unflags: -Werror=all
   includes:
     - LedDisplay/LedDisplay.cpp
     - LedDisplay/LedDisplay.h
@@ -10,7 +13,7 @@ esphome:
   on_boot:
     then:
       - lambda: |-
-          static auto my_display_1 = new LedDisplay(25, 26, 27, 14, 12, 16);
+          static auto my_display_1 = new LedDisplay(13, 12, 9, 10, 14, 16);
           my_display_1->begin();
           my_display_1->clear();
           my_display_1->setBrightness(8);
@@ -19,10 +22,31 @@ esphome:
           id(cursor_pos) = id(buffer).length();
           return;
 
+packages:
+  keyboard: !include Calculator/keyboard.yaml
+
 esp32:
-  board: esp32dev
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16MB
+  cpu_frequency: 240MHz
   framework:
     type: esp-idf
+    sdkconfig_options:
+      COMPILER_OPTIMIZATION_SIZE: y
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: display_moodlight
+    rgb_order: RGB
+    pin: GPIO48
+    num_leds: 1
+    chipset: ws2812
+    use_psram: true
+    name: "My Light"
 
 logger:
 
@@ -118,7 +142,7 @@ script:
   - id: refresh_display
     then:
       - lambda: |-
-          static auto my_display_1 = new LedDisplay(25, 26, 27, 14, 12, 16);
+          static auto my_display_1 = new LedDisplay(13, 12, 9, 10, 14, 16);
           my_display_1->setCursor(0);
           my_display_1->setString(id(text_1).state.c_str());
           my_display_1->scroll(0);
