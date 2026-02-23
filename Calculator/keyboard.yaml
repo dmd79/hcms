@@ -1,0 +1,541 @@
+# =============================================
+# TASTIERA COMPLETA 6x10 (60 tasti) per ESP32-S3
+# =============================================
+# Display usa: GPIO13, GPIO12, GPIO9, GPIO10, GPIO14, GPIO16
+# LED RGB usa: GPIO48
+# ESP32-S3 ha GPIO 0-48
+
+matrix_keypad:
+  id: calc_keypad
+  rows:
+    - pin: GPIO1   # Riga 1
+    - pin: GPIO2   # Riga 2
+    - pin: GPIO11  # Riga 3 (era GPIO3)
+    - pin: GPIO4   # Riga 4
+    - pin: GPIO5   # Riga 5
+    - pin: GPIO6   # Riga 6
+  columns:
+    - pin: GPIO7   # Colonna 1
+    - pin: GPIO8   # Colonna 2
+    - pin: GPIO15  # Colonna 3
+    - pin: GPIO17  # Colonna 4
+    - pin: GPIO18  # Colonna 5
+    - pin: GPIO19  # Colonna 6
+    - pin: GPIO20  # Colonna 7
+    - pin: GPIO21  # Colonna 8
+    - pin: GPIO39  # Colonna 9 (era GPIO37)
+    - pin: GPIO38  # Colonna 10
+  
+  # 6 righe x 10 colonne = 60 caratteri
+  keys: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567"
+  
+  has_diodes: false
+
+# =============================================
+# Layout completo tastiera (rispecchia immagine):
+# =============================================
+# RIGA 1: HOME    <      >      END    C      DEL    M1     M2     M3     UNDO
+# RIGA 2: sin     cos    tan    asin   acos   atan   (      )      %      +/-
+# RIGA 3: sinh    cosh   tanh   ln     log    log2   7      8      9      /
+# RIGA 4: x2      x3     xy     EXP    SQR    CUB    4      5      6      *
+# RIGA 5: exp     abs    ceil   floor  PI     e      1      2      3      -
+# RIGA 6: n!      DEG    RAD    round  spare  MCLR   0      .      =      +
+
+binary_sensor:
+  # ========================================
+  # RIGA 1: Navigazione e Memoria
+  # ========================================
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_home
+    key: "A"
+    on_press:
+      then:
+        - button.press: btn_cursor_home
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_left
+    key: "B"
+    on_press:
+      then:
+        - button.press: btn_cursor_left
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_right
+    key: "C"
+    on_press:
+      then:
+        - button.press: btn_cursor_right
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_end
+    key: "D"
+    on_press:
+      then:
+        - button.press: btn_cursor_end
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_clear
+    key: "E"
+    on_press:
+      then:
+        - button.press: btn_clear
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_del
+    key: "F"
+    on_press:
+      then:
+        - button.press: btn_backspace
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_m1
+    key: "G"
+    on_press:
+      then:
+        - button.press: btn_mem1
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_m2
+    key: "H"
+    on_press:
+      then:
+        - button.press: btn_mem2
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_m3
+    key: "I"
+    on_press:
+      then:
+        - button.press: btn_mem3
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_undo
+    key: "J"
+    on_press:
+      then:
+        - button.press: btn_undo
+
+  # ========================================
+  # RIGA 2: Funzioni Trigonometriche
+  # ========================================
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_sin
+    key: "K"
+    on_press:
+      then:
+        - button.press: btn_sin
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_cos
+    key: "L"
+    on_press:
+      then:
+        - button.press: btn_cos
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_tan
+    key: "M"
+    on_press:
+      then:
+        - button.press: btn_tan
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_asin
+    key: "N"
+    on_press:
+      then:
+        - button.press: btn_asin
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_acos
+    key: "O"
+    on_press:
+      then:
+        - button.press: btn_acos
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_atan
+    key: "P"
+    on_press:
+      then:
+        - button.press: btn_atan
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_par_open
+    key: "Q"
+    on_press:
+      then:
+        - button.press: btn_par_open
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_par_close
+    key: "R"
+    on_press:
+      then:
+        - button.press: btn_par_close
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_mod
+    key: "S"
+    on_press:
+      then:
+        - button.press: btn_mod
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_neg_exp
+    key: "T"
+    on_press:
+      then:
+        - button.press: btn_neg_exp
+
+  # ========================================
+  # RIGA 3: Funzioni Iperboliche + Numeri
+  # ========================================
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_sinh
+    key: "U"
+    on_press:
+      then:
+        - button.press: btn_sinh
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_cosh
+    key: "V"
+    on_press:
+      then:
+        - button.press: btn_cosh
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_tanh
+    key: "W"
+    on_press:
+      then:
+        - button.press: btn_tanh
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_ln
+    key: "X"
+    on_press:
+      then:
+        - button.press: btn_ln
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_log
+    key: "Y"
+    on_press:
+      then:
+        - button.press: btn_log
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_log2
+    key: "Z"
+    on_press:
+      then:
+        - button.press: btn_log2
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_7
+    key: "a"
+    on_press:
+      then:
+        - button.press: btn_7
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_8
+    key: "b"
+    on_press:
+      then:
+        - button.press: btn_8
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_9
+    key: "c"
+    on_press:
+      then:
+        - button.press: btn_9
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_div
+    key: "d"
+    on_press:
+      then:
+        - button.press: btn_div
+
+  # ========================================
+  # RIGA 4: Potenze e Radici + Numeri
+  # ========================================
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_pow2
+    key: "e"
+    on_press:
+      then:
+        - button.press: btn_pow2
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_pow3
+    key: "f"
+    on_press:
+      then:
+        - button.press: btn_pow3
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_pow
+    key: "g"
+    on_press:
+      then:
+        - button.press: btn_pow
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_exp
+    key: "h"
+    on_press:
+      then:
+        - button.press: btn_exp
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_sqrt
+    key: "i"
+    on_press:
+      then:
+        - button.press: btn_sqrt
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_cbrt
+    key: "j"
+    on_press:
+      then:
+        - button.press: btn_cbrt
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_4
+    key: "k"
+    on_press:
+      then:
+        - button.press: btn_4
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_5
+    key: "l"
+    on_press:
+      then:
+        - button.press: btn_5
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_6
+    key: "m"
+    on_press:
+      then:
+        - button.press: btn_6
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_mult
+    key: "n"
+    on_press:
+      then:
+        - button.press: btn_mult
+
+  # ========================================
+  # RIGA 5: Altre funzioni + Numeri
+  # ========================================
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_exp_func
+    key: "o"
+    on_press:
+      then:
+        - button.press: btn_exp
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_abs
+    key: "p"
+    on_press:
+      then:
+        - button.press: btn_abs
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_ceil
+    key: "q"
+    on_press:
+      then:
+        - button.press: btn_ceil
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_floor
+    key: "r"
+    on_press:
+      then:
+        - button.press: btn_floor
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_pi
+    key: "s"
+    on_press:
+      then:
+        - button.press: btn_pi
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_e_const
+    key: "t"
+    on_press:
+      then:
+        - button.press: btn_e
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_1
+    key: "u"
+    on_press:
+      then:
+        - button.press: btn_1
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_2
+    key: "v"
+    on_press:
+      then:
+        - button.press: btn_2
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_3
+    key: "w"
+    on_press:
+      then:
+        - button.press: btn_3
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_minus
+    key: "x"
+    on_press:
+      then:
+        - button.press: btn_minus
+
+  # ========================================
+  # RIGA 6: Funzioni finali + Operatori
+  # ========================================
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_factorial
+    key: "y"
+    on_press:
+      then:
+        - button.press: btn_factorial
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_deg
+    key: "z"
+    on_press:
+      then:
+        - button.press: btn_deg
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_rad
+    key: "0"
+    on_press:
+      then:
+        - button.press: btn_rad
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_round
+    key: "1"
+    on_press:
+      then:
+        - button.press: btn_round
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_spare
+    key: "2"
+    on_press:
+      then:
+        - logger.log: "Spare key pressed - not assigned"
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_mclr
+    key: "3"
+    on_press:
+      then:
+        - button.press: btn_mem_clear
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_0
+    key: "4"
+    on_press:
+      then:
+        - button.press: btn_0
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_dot
+    key: "5"
+    on_press:
+      then:
+        - button.press: btn_dot
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_equal
+    key: "6"
+    on_press:
+      then:
+        - button.press: btn_equal
+
+  - platform: matrix_keypad
+    keypad_id: calc_keypad
+    id: key_plus
+    key: "7"
+    on_press:
+      then:
+        - button.press: btn_plus
