@@ -22,6 +22,9 @@ esphome:
           id(cursor_pos) = id(buffer).length();
           return;
 
+preferences:
+  flash_write_interval: 0s
+
 packages:
   keyboard: !include Calculator/keyboard.yaml
 
@@ -277,7 +280,48 @@ text:
     optimistic: true
     initial_value: "0"
 
+# =====================
+# LUMINOSITÀ DISPLAY
+# =====================
+number:
+  - platform: template
+    name: "Display Brightness"
+    id: display_brightness
+    min_value: 1
+    max_value: 15
+    step: 1
+    initial_value: 8
+    optimistic: true
+    restore_value: true
+    set_action:
+      - lambda: |-
+          static auto my_display_1 = new LedDisplay(13, 12, 9, 10, 14, 16);
+          my_display_1->setBrightness((int)x);
+
+# =====================
+# PULSANTI LUMINOSITÀ (opzionali)
+# =====================
 button:
+  - platform: template
+    name: "Brightness Up"
+    id: btn_brightness_up
+    on_press:
+      - number.set:
+          id: display_brightness
+          value: !lambda |-
+            float current = id(display_brightness).state;
+            return current < 15 ? current + 1 : 15;
+
+  - platform: template
+    name: "Brightness Down"
+    id: btn_brightness_down
+    on_press:
+      - number.set:
+          id: display_brightness
+          value: !lambda |-
+            float current = id(display_brightness).state;
+            return current > 1 ? current - 1 : 1;
+
 # =====================
 # PULSANTI NUMERICI
 # =====================
