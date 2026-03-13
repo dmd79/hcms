@@ -18,12 +18,11 @@ matrix_keypad:
     - pin: GPIO21  # Colonna 8
     - pin: GPIO39  # Colonna 9
     - pin: GPIO38  # Colonna 10
- 
+
   keys: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567"
-  
+
   has_diodes: false
 
-# =============================================
 # Keyboard layout
 # =============================================
 # RIGA 1: HOME    <      >      END    C      DEL    M1     M2     M3     UNDO
@@ -35,7 +34,7 @@ matrix_keypad:
 
 binary_sensor:
   # ========================================
-  # RIGA 1: Navigazione e Memoria
+  # RIGA 1
   # ========================================
   - platform: matrix_keypad
     keypad_id: calc_keypad
@@ -43,6 +42,7 @@ binary_sensor:
     key: "A"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_cursor_home
 
   - platform: matrix_keypad
@@ -51,6 +51,7 @@ binary_sensor:
     key: "B"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_cursor_left
 
   - platform: matrix_keypad
@@ -59,6 +60,7 @@ binary_sensor:
     key: "C"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_cursor_right
 
   - platform: matrix_keypad
@@ -67,6 +69,7 @@ binary_sensor:
     key: "D"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_cursor_end
 
   - platform: matrix_keypad
@@ -75,6 +78,7 @@ binary_sensor:
     key: "E"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_clear
 
   - platform: matrix_keypad
@@ -83,6 +87,7 @@ binary_sensor:
     key: "F"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_backspace
 
   - platform: matrix_keypad
@@ -91,6 +96,7 @@ binary_sensor:
     key: "G"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_mem1
 
   - platform: matrix_keypad
@@ -99,6 +105,7 @@ binary_sensor:
     key: "H"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_mem2
 
   - platform: matrix_keypad
@@ -107,6 +114,7 @@ binary_sensor:
     key: "I"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_mem3
 
   - platform: matrix_keypad
@@ -115,10 +123,11 @@ binary_sensor:
     key: "J"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_undo
 
   # ========================================
-  # RIGA 2: Funzioni Trigonometriche
+  # RIGA 2
   # ========================================
   - platform: matrix_keypad
     keypad_id: calc_keypad
@@ -126,6 +135,7 @@ binary_sensor:
     key: "K"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_sin
 
   - platform: matrix_keypad
@@ -134,6 +144,7 @@ binary_sensor:
     key: "L"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_cos
 
   - platform: matrix_keypad
@@ -142,6 +153,7 @@ binary_sensor:
     key: "M"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_tan
 
   - platform: matrix_keypad
@@ -150,6 +162,7 @@ binary_sensor:
     key: "N"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_asin
 
   - platform: matrix_keypad
@@ -158,6 +171,7 @@ binary_sensor:
     key: "O"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_acos
 
   - platform: matrix_keypad
@@ -166,6 +180,7 @@ binary_sensor:
     key: "P"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_atan
 
   - platform: matrix_keypad
@@ -174,6 +189,7 @@ binary_sensor:
     key: "Q"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_par_open
 
   - platform: matrix_keypad
@@ -182,6 +198,7 @@ binary_sensor:
     key: "R"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_par_close
 
   - platform: matrix_keypad
@@ -190,6 +207,7 @@ binary_sensor:
     key: "S"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_mod
 
   - platform: matrix_keypad
@@ -198,10 +216,11 @@ binary_sensor:
     key: "T"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_neg_exp
 
   # ========================================
-  # RIGA 3: Funzioni Iperboliche + Numeri
+  # RIGA 3
   # ========================================
   - platform: matrix_keypad
     keypad_id: calc_keypad
@@ -209,6 +228,7 @@ binary_sensor:
     key: "U"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_sinh
 
   - platform: matrix_keypad
@@ -217,6 +237,7 @@ binary_sensor:
     key: "V"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_cosh
 
   - platform: matrix_keypad
@@ -225,6 +246,7 @@ binary_sensor:
     key: "W"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_tanh
 
   - platform: matrix_keypad
@@ -233,6 +255,7 @@ binary_sensor:
     key: "X"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_ln
 
   - platform: matrix_keypad
@@ -241,6 +264,7 @@ binary_sensor:
     key: "Y"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_log
 
   - platform: matrix_keypad
@@ -249,6 +273,7 @@ binary_sensor:
     key: "Z"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_log2
 
   - platform: matrix_keypad
@@ -257,6 +282,7 @@ binary_sensor:
     key: "a"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_7
 
   - platform: matrix_keypad
@@ -265,6 +291,7 @@ binary_sensor:
     key: "b"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_8
 
   - platform: matrix_keypad
@@ -273,6 +300,7 @@ binary_sensor:
     key: "c"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_9
 
   - platform: matrix_keypad
@@ -281,10 +309,11 @@ binary_sensor:
     key: "d"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_div
 
   # ========================================
-  # RIGA 4: Potenze e Radici + Numeri
+  # RIGA 4
   # ========================================
   - platform: matrix_keypad
     keypad_id: calc_keypad
@@ -292,6 +321,7 @@ binary_sensor:
     key: "e"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_pow2
 
   - platform: matrix_keypad
@@ -300,6 +330,7 @@ binary_sensor:
     key: "f"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_pow3
 
   - platform: matrix_keypad
@@ -308,6 +339,7 @@ binary_sensor:
     key: "g"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_pow
 
   - platform: matrix_keypad
@@ -316,6 +348,7 @@ binary_sensor:
     key: "h"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_exp
 
   - platform: matrix_keypad
@@ -324,6 +357,7 @@ binary_sensor:
     key: "i"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_sqrt
 
   - platform: matrix_keypad
@@ -332,6 +366,7 @@ binary_sensor:
     key: "j"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_cbrt
 
   - platform: matrix_keypad
@@ -340,6 +375,7 @@ binary_sensor:
     key: "k"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_4
 
   - platform: matrix_keypad
@@ -348,6 +384,7 @@ binary_sensor:
     key: "l"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_5
 
   - platform: matrix_keypad
@@ -356,6 +393,7 @@ binary_sensor:
     key: "m"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_6
 
   - platform: matrix_keypad
@@ -364,10 +402,11 @@ binary_sensor:
     key: "n"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_mult
 
   # ========================================
-  # RIGA 5: Altre funzioni + Numeri
+  # RIGA 5
   # ========================================
   - platform: matrix_keypad
     keypad_id: calc_keypad
@@ -375,6 +414,7 @@ binary_sensor:
     key: "o"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_exp
 
   - platform: matrix_keypad
@@ -383,6 +423,7 @@ binary_sensor:
     key: "p"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_abs
 
   - platform: matrix_keypad
@@ -391,6 +432,7 @@ binary_sensor:
     key: "q"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_ceil
 
   - platform: matrix_keypad
@@ -399,6 +441,7 @@ binary_sensor:
     key: "r"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_floor
 
   - platform: matrix_keypad
@@ -407,6 +450,7 @@ binary_sensor:
     key: "s"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_pi
 
   - platform: matrix_keypad
@@ -415,6 +459,7 @@ binary_sensor:
     key: "t"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_e
 
   - platform: matrix_keypad
@@ -423,6 +468,7 @@ binary_sensor:
     key: "u"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_1
 
   - platform: matrix_keypad
@@ -431,6 +477,7 @@ binary_sensor:
     key: "v"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_2
 
   - platform: matrix_keypad
@@ -439,6 +486,7 @@ binary_sensor:
     key: "w"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_3
 
   - platform: matrix_keypad
@@ -447,10 +495,11 @@ binary_sensor:
     key: "x"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_minus
 
   # ========================================
-  # RIGA 6: Funzioni finali + Operatori
+  # RIGA 6
   # ========================================
   - platform: matrix_keypad
     keypad_id: calc_keypad
@@ -458,6 +507,7 @@ binary_sensor:
     key: "y"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_factorial
 
   - platform: matrix_keypad
@@ -466,6 +516,7 @@ binary_sensor:
     key: "z"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_deg
 
   - platform: matrix_keypad
@@ -474,6 +525,7 @@ binary_sensor:
     key: "0"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_rad
 
   - platform: matrix_keypad
@@ -482,6 +534,7 @@ binary_sensor:
     key: "1"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_round
 
   - platform: matrix_keypad
@@ -490,6 +543,7 @@ binary_sensor:
     key: "2"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - logger.log: "Spare key pressed - not assigned"
 
   - platform: matrix_keypad
@@ -498,6 +552,7 @@ binary_sensor:
     key: "3"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_mem_clear
 
   - platform: matrix_keypad
@@ -506,6 +561,7 @@ binary_sensor:
     key: "4"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_0
 
   - platform: matrix_keypad
@@ -514,6 +570,7 @@ binary_sensor:
     key: "5"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_dot
 
   - platform: matrix_keypad
@@ -522,6 +579,7 @@ binary_sensor:
     key: "6"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_equal
 
   - platform: matrix_keypad
@@ -530,4 +588,5 @@ binary_sensor:
     key: "7"
     on_press:
       then:
+        - lambda: id(last_key_time) = millis();
         - button.press: btn_plus
