@@ -19,7 +19,7 @@ std::map<std::string, OpInfo> operators = {
     {"-",   {1, false}},
     {"*",   {2, false}},
     {"/",   {2, false}},
-    {"%",   {2, false}},  // modulo
+    // "%" non è un operatore binario: viene espanso contestualmente dal tokenizer
     {"NEG", {3, true}},   // meno unario
     {"^",   {4, true}}
 };
@@ -123,7 +123,66 @@ std::vector<std::string> tokenize(const std::string &expr) {
             i++;
         }
     }
-    return tokens;
+    // Espansione contestuale di "%", stile calcolatrice fisica:
+    //   a + b%  →  a + (a * b / 100)   → es. 200+10% = 220
+    //   a - b%  →  a - (a * b / 100)   → es. 200-10% = 180
+    //   a * b%  →  a * (b / 100)       → es. 100*10% = 10
+    //   a / b%  →  a / (b / 100)       → es. 1000/10% = 10000
+    //       b%  →  (b / 100)           → es. 50% = 0.5
+    std::vector<std::string> out;
+    for (size_t k = 0; k < tokens.size(); k++) {
+        if (tokens[k] != "%") { out.push_back(tokens[k]); continue; }
+
+        // Cerca l'operatore più vicino a sinistra al livello di parentesi 0
+        int depth = 0;
+        std::string ctx_op = "";
+        std::string ctx_left = "";
+        for (int j = (int)out.size()-1; j >= 0; j--) {
+            if (out[j] == ")") depth++;
+            else if (out[j] == "(") depth--;
+            if (depth != 0) continue;
+            if (out[j] == "+" || out[j] == "-") {
+                ctx_op = out[j];
+                // cerca il numero/gruppo immediatamente a sx dell'operatore
+                for (int m = j-1; m >= 0; m--) {
+                    if (out[m] == ")" || isdigit(out[m][0]) || out[m][0] == '.') {
+                        ctx_left = out[m]; break;
+                    }
+                }
+                break;
+            }
+            if (out[j] == "*" || out[j] == "/") { ctx_op = out[j]; break; }
+        }
+
+        // Trova l'indice di inizio dell'operando b (token prima del %)
+        // per poterlo wrappare in parentesi se necessario
+        auto find_operand_start = [&]() -> int {
+            int d = 0;
+            for (int j = (int)out.size()-1; j >= 0; j--) {
+                if (out[j] == ")") d++;
+                else if (out[j] == "(") d--;
+                if (d == 0 && (out[j]=="*"||out[j]=="/"||out[j]=="+"||out[j]=="-")) return j+1;
+                if (j == 0) return 0;
+            }
+            return 0;
+        };
+
+        if (ctx_op == "+" || ctx_op == "-") {
+            // a ± b%  →  a ± b * ctx_left / 100
+            out.push_back("*");
+            out.push_back(ctx_left);
+            out.push_back("/");
+            out.push_back("100");
+        } else {
+            // * / o nessun contesto: b%  →  (b / 100)
+            int start = find_operand_start();
+            out.insert(out.begin() + start, "(");
+            out.push_back("/");
+            out.push_back("100");
+            out.push_back(")");
+        }
+    }
+    return out;
 }
 
 // Shunting-Yard + calcolo
@@ -137,7 +196,6 @@ double evalExpression(const std::string &expr) {
         if(op=="-") return a-b;
         if(op=="*") return a*b;
         if(op=="/") return (b!=0)?a/b:NAN;
-        if(op=="%") return fmod(a,b);  // modulo
         if(op=="^") return pow(a,b);
         return NAN;
     };
