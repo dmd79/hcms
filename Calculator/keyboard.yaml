@@ -51,8 +51,14 @@ binary_sensor:
     key: "B"
     on_press:
       then:
-        - lambda: id(last_key_time) = millis();
+        - lambda: |-
+            id(last_key_time) = millis();
+            id(repeat_left_start) = millis();
+            id(repeat_left_active) = true;
         - button.press: btn_cursor_left
+    on_release:
+      then:
+        - lambda: id(repeat_left_active) = false;
 
   - platform: matrix_keypad
     keypad_id: calc_keypad
@@ -60,8 +66,14 @@ binary_sensor:
     key: "C"
     on_press:
       then:
-        - lambda: id(last_key_time) = millis();
+        - lambda: |-
+            id(last_key_time) = millis();
+            id(repeat_right_start) = millis();
+            id(repeat_right_active) = true;
         - button.press: btn_cursor_right
+    on_release:
+      then:
+        - lambda: id(repeat_right_active) = false;
 
   - platform: matrix_keypad
     keypad_id: calc_keypad
@@ -87,8 +99,14 @@ binary_sensor:
     key: "F"
     on_press:
       then:
-        - lambda: id(last_key_time) = millis();
+        - lambda: |-
+            id(last_key_time) = millis();
+            id(repeat_del_start) = millis();
+            id(repeat_del_active) = true;
         - button.press: btn_backspace
+    on_release:
+      then:
+        - lambda: id(repeat_del_active) = false;
 
   - platform: matrix_keypad
     keypad_id: calc_keypad

@@ -163,6 +163,31 @@ globals:
     type: uint32_t
     initial_value: '0'
 
+  - id: repeat_left_active
+    type: bool
+    initial_value: 'false'
+  - id: repeat_left_start
+    type: uint32_t
+    initial_value: '0'
+
+  - id: repeat_right_active
+    type: bool
+    initial_value: 'false'
+  - id: repeat_right_start
+    type: uint32_t
+    initial_value: '0'
+
+  - id: repeat_del_active
+    type: bool
+    initial_value: 'false'
+  - id: repeat_del_start
+    type: uint32_t
+    initial_value: '0'
+
+  - id: repeat_last_fire
+    type: uint32_t
+    initial_value: '0'
+
 # =====================
 # SCRIPT DISPLAY
 # =====================
@@ -1850,6 +1875,25 @@ interval:
   - interval: 500ms
     then:
       - script.execute: update_input_display
+
+  - interval: 50ms
+    then:
+      - lambda: |-
+          uint32_t now = millis();
+          bool any = id(repeat_left_active) || id(repeat_right_active) || id(repeat_del_active);
+          if (!any) return;
+          // Controlla quale tasto è attivo e calcola il tempo dall'inizio
+          uint32_t start = 0;
+          if (id(repeat_left_active))  start = id(repeat_left_start);
+          if (id(repeat_right_active)) start = id(repeat_right_start);
+          if (id(repeat_del_active))   start = id(repeat_del_start);
+          if (now - start < 600) return;  // delay iniziale 600ms
+          if (now - id(repeat_last_fire) < 150) return;  // intervallo 150ms
+          id(repeat_last_fire) = now;
+          id(last_key_time) = now;
+          if (id(repeat_left_active))  id(btn_cursor_left).press();
+          if (id(repeat_right_active)) id(btn_cursor_right).press();
+          if (id(repeat_del_active))   id(btn_backspace).press();
   - interval: 1s
     then:
       - lambda: |-
