@@ -212,12 +212,12 @@ binary_sensor:
 
   - platform: matrix_keypad
     keypad_id: calc_keypad
-    id: key_neg_exp
+    id: key_neg_all
     key: "T"
     on_press:
       then:
         - lambda: id(last_key_time) = millis();
-        - button.press: btn_neg_exp
+        - button.press: btn_neg_all
 
   # ========================================
   # RIGA 3
