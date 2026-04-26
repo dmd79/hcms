@@ -364,25 +364,8 @@ script:
 
               if (std::isnan(v) || std::isinf(v)) {
                   snprintf(buf, sizeof(buf), "ERROR");
-              } else if (std::fabs(v) >= 1e15 || (std::fabs(v) > 0 && std::fabs(v) < 1e-7)) {
-                  snprintf(buf, sizeof(buf), "%.15e", v);
               } else {
-                  double v_abs = std::fabs(v);
-                  int int_digits = (v < 0) ? 1 : 0;
-                  long long int_part = (long long)v_abs;
-                  if (int_part == 0) int_digits += 1;
-                  else { long long t = int_part; while (t > 0) { int_digits++; t /= 10; } }
-                  int decimals = 23 - int_digits - 1;
-                  if (decimals < 0) decimals = 0;
-                  char fmt[16], tmp[64];
-                  snprintf(fmt, sizeof(fmt), "%%.%df", decimals);
-                  snprintf(tmp, sizeof(tmp), fmt, v);
-                  std::string r(tmp);
-                  if (decimals > 0) {
-                      while (r.back() == '0') r.pop_back();
-                      if (r.back() == '.') r.pop_back();
-                  }
-                  snprintf(buf, sizeof(buf), "%s", r.c_str());
+                  snprintf(buf, sizeof(buf), "%.15g", v);
               }
               return buf;
       - script.execute: refresh_display
@@ -972,6 +955,15 @@ button:
               return;
           }
 
+          // Se non ci sono operatori o funzioni → non ricalcolare
+          {
+              bool has_op = false;
+              for (char c : expr)
+                  if (c=='+' || c=='-' || c=='*' || c=='/' || c=='^' ||
+                      c=='%' || c=='(' || c==')' || isalpha(c)) { has_op = true; break; }
+              if (!has_op) return;
+          }
+
           // Calcola risultato
           double res = evalExpression(expr);
           id(result) = res;
@@ -981,29 +973,7 @@ button:
           if(std::isnan(res) || std::isinf(res)) {
               snprintf(buf, sizeof(buf), "ERROR");
           } else {
-              double abs_res = std::fabs(res);
-
-              // 🔹 Se troppo grande o troppo piccolo → scientifica
-              if(abs_res >= 1e15 || (abs_res > 0 && abs_res < 1e-7)) {
-                  snprintf(buf, sizeof(buf), "%.15e", res);
-              } else {
-                  double res_abs = std::fabs(res);
-                  int int_digits = (res < 0) ? 1 : 0;
-                  long long int_part = (long long)res_abs;
-                  if (int_part == 0) int_digits += 1;
-                  else { long long t = int_part; while (t > 0) { int_digits++; t /= 10; } }
-                  int decimals = 23 - int_digits - 1;
-                  if (decimals < 0) decimals = 0;
-                  char fmt[16], temp[64];
-                  snprintf(fmt, sizeof(fmt), "%%.%df", decimals);
-                  snprintf(temp, sizeof(temp), fmt, res);
-                  std::string s(temp);
-                  if (decimals > 0) {
-                      while(s.back()=='0') s.pop_back();
-                      if(s.back()=='.') s.pop_back();
-                  }
-                  snprintf(buf, sizeof(buf), "%s", s.c_str());
-              }
+              snprintf(buf, sizeof(buf), "%.15g", res);
           }
 
           id(buffer) = std::string(buf);
@@ -1132,6 +1102,13 @@ button:
       - lambda: |-
           std::string& s = id(buffer);
           if(s.empty() || id(cursor_pos)==0) return;
+
+          // Se era un risultato → tronca buffer a ciò che è visibile e resetta
+          if (id(last_was_result)) {
+              id(last_was_result) = false;
+              if (s.length() > 24) s.resize(24);
+              id(cursor_pos) = s.length();
+          }
 
           int pos = id(cursor_pos) - 1;
 
